@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAX50 Initial Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 40px; /* Increased Space from the title */
+            position: absolute; /* Position at the top */
+            width: 100%; /* Full width to center buttons */
+        }
+        .main-button {
+            padding: 10px 20px;
+            height: 50px; /* Set height of main buttons to 50 pixels */
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px; /* Space between buttons */
+            background-color: green; /* Green background */
+            color: white; /* White text */
+            border: none; /* No border */
+            border-radius: 5px; /* Rounded corners */
+        }
+        .container {
+            display: none; /* Initially hidden */
+            flex: 1;
+            justify-content: space-between;
+            padding: 0 20px; /* Changed padding to top and bottom */
+            margin-top: 50px; /* Adjusted to give space from buttons */
+        }
+        .left-panel, .right-panel {
+            width: 45%;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .step {
+            margin-bottom: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .button-container-steps {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        .yes-button { background-color: green; color: white; }
+        .no-button { background-color: red; color: white; }
+        .back-button { background-color: orange; color: white; }
+        .troubleshooting-container {
+            display: none;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #ffe6e6;
+        }
+        .comments-section {
+            display: none;
+            margin-top: 30px;
+            text-align: left;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .completed-step {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- New button container for the top buttons -->
+<div class="button-container">
+    <button class="main-button" onclick="startSetup('wired')">Setting up your Router using Wired device to RAX50</button>
+    <button class="main-button" onclick="startSetup('wireless')">Setting up your Router using Wireless device to RAX50</button>
+</div>
+
+<div class="container" id="stepsContainer">
+    <div class="left-panel">
+        <div id="stepsContent"></div>
+        <div class="result" id="resultContainer"></div>
+        <div class="button-container-steps" id="buttonContainer">
+            <button class="yes-button" onclick="handleDecision('yes')">Yes</button>
+            <button class="no-button" onclick="handleDecision('no')">No</button>
+            <button class="back-button" onclick="goBack()">Back</button>
+        </div>
+        <div class="comments-section" id="commentsSection">
+            <h3>Notes</h3>
+            <div id="commentsContent"></div>
+        </div>
+        <div class="troubleshooting-container" id="troubleshootingContainer">
+            <h3>Troubleshooting Steps</h3>
+            <div id="troubleshootingContent"></div>
+        </div>
+    </div>
+    <div class="right-panel">
+        <h3>Completed Steps</h3>
+        <div id="completedSteps"></div>
+    </div>
+</div>
+
+<script>
+    let stepIndex = 0;
+    let issues = [];
+    let results = {};
+    let selections = [];
+    let completedStepsTracker = [];
+    let currentSetupType = ''; // Variable to store the current setup type
+    let noClickedSteps = new Set(); // To track steps where "No" was clicked
+
+    const wiredSteps = [
+        {
+            step: "Connect your device to the router's LAN Port using Ethernet Cable.", 
+            yes: "Proceed to the next step.",
+            no: "Ensure the Ethernet cable is securely connected to the LAN port of the router. If it’s not working, try using a different Ethernet cable or LAN port."
+        },
+        {
+            step: "How do I know my SSID or from where will I find my SSID of my Router?",
+            yes: "Flip your Router Upside Down; you will see a router label where the Wi-Fi network name and password will be printed on it.",
+            no: "Flip your Router Upside Down; you will see a router label where the Wi-Fi network name and password will be printed on it."
+        },
+        {
+            step: "Open a browser, type www.routerlogin.net in the address bar, and press Enter.",
+            yes: "Proceed to the next step.",
+            no: "Ensure your device is connected to the router’s LAN port. Try typing the IP address (192.168.1.1) instead if www.routerlogin.net doesn't load."
+        },
+        {
+            step: "To the bottom of the screen you will see, If you don't have a compatible smart phone. Click here. Please Click here to continue with the setup", 
+            yes: "Proceed to the next step.",
+            no: "To the bottom of the screen you will see, If you don't have a compatible smart phone. Click here. Please Click here to continue with the setup"
+        },
+        {
+            step: "On the next screen, agree to the Netgear terms and conditions.",
+            yes: "Continue with the setup.",
+            no: "You need to agree to the terms and conditions to proceed."
+        },
+        {
+            step: "On the Next Screen Router will check for the Cable connection and internet connection, if there is no internet you will see an option like - 'Do you want Netgear Genie to help Yes / No'.",
+            yes: "Select Yes or No as applicable.",
+            no: "If the router is with the latest firmware, i.e., RAX50 Firmware Version 1.0.16.132, you will be unable to proceed further with the router setup. Please unplug the Ethernet cable from the Internet port (yellow color port on the back of the router). On your screen, you will see 'Do you want Netgear Genie to help Yes/No'. Please choose NO."
+        },
+        {
+            step: "Did you enter the required information and follow the on-screen instructions?",
+            yes: "Continue with the setup.",
+            no: "Review the fields to make sure all required information is entered correctly. Re-enter any missing details."
+        },
+        {
+            step: "Create a new password for your admin account and re-type it in the required field.",
+            yes: "Continue to the next step.",
+            no: "Make sure both fields match and meet the password requirements. If it still fails, try a different password."
+        },
+        {
+            step: "Select two security questions, answer them, and click Next.",
+            yes: "Continue to the next step.",
+            no: "Choose two questions and provide answers to both before clicking 'Next.' If issues persist, try re-entering."
+        },
+        {
+            step: "Now you will see the WIFI network Name and Password for 2.4 GHz, 5 GHz. Click on Next.",
+            yes: "Proceed to the next step.",
+            no: "Please ensure that you have the correct Wi-Fi network name and password before clicking Next."
+        },
+        {
+            step: "Now RAX50 will check in Netgear server for any new firmware update.",
+            yes: "Continue with the setup.",
+            no: "If there are issues checking for updates, please ensure your internet connection is stable."
+        },
+        {
+            step: "Please do not update the router to the latest firmware. As there is an ongoing issue with the latest firmware update.",
+            yes: "Click Next to complete the setup.",
+            no: "If you're having issues with the firmware update, please consult the troubleshooting section."
+        }
+    ];
+
+    const wirelessSteps = [
+        {
+            step: "Connect your Laptop or Phone or Tablet wirelessly to the router's Wi-Fi Network Name and Password.", 
+            yes: "Proceed to the next step.",
+            no: "Ensure you have the correct Wi-Fi network and password. If not, check the router label."
+        },
+        {
+            step: "How do I know my SSID or from where will I find my SSID of my Router?",
+            yes: "Flip your Router Upside Down; you will see a router label where the Wi-Fi network name and password will be printed on it.",
+            no: "Flip your Router Upside Down; you will see a router label where the Wi-Fi network name and password will be printed on it."
+        },
+        {
+            step: "Open a browser, type www.routerlogin.net in the address bar, and press Enter.",
+            yes: "Proceed to the next step.",
+            no: "Ensure your device is connected to the router’s Wi-Fi network. Try typing the IP address (192.168.1.1) instead if www.routerlogin.net doesn't load."
+        },
+        {
+            step: "To the bottom of the screen you will see, If you don't have a compatible smart phone. Click here. Please Click here to continue with the setup", 
+            yes: "Proceed to the next step.",
+            no: "To the bottom of the screen you will see, If you don't have a compatible smart phone. Click here. Please Click here to continue with the setup"
+        },
+        {
+            step: "On the next screen, agree to the Netgear terms and conditions.",
+            yes: "Continue with the setup.",
+            no: "You need to agree to the terms and conditions to proceed."
+        },
+        {
+            step: "On the Next Screen Router will check for the Cable connection and internet connection, if there is no internet you will see an option like - 'Do you want Netgear Genie to help Yes / No'.",
+            yes: "Select Yes or No as applicable.",
+            no: "If the router is with the latest firmware, i.e., RAX50 Firmware Version 1.0.16.132, you will be unable to proceed further with the router setup. Please unplug the Ethernet cable from the Internet port (yellow color port on the back of the router). On your screen, you will see 'Do you want Netgear Genie to help Yes/No'. Please choose NO."
+        },
+        {
+            step: "Did you enter the required information and follow the on-screen instructions?",
+            yes: "Continue with the setup.",
+            no: "Review the fields to make sure all required information is entered correctly. Re-enter any missing details."
+        },
+        {
+            step: "Create a new password for your admin account and re-type it in the required field.",
+            yes: "Continue to the next step.",
+            no: "Make sure both fields match and meet the password requirements. If it still fails, try a different password."
+        },
+        {
+            step: "Select two security questions, answer them, and click Next.",
+            yes: "Continue to the next step.",
+            no: "Choose two questions and provide answers to both before clicking 'Next.' If issues persist, try re-entering."
+        },
+        {
+            step: "Now you will see the WIFI network Name and Password for 2.4 GHz, 5 GHz. Click on Next.",
+            yes: "Proceed to the next step.",
+            no: "Please ensure that you have the correct Wi-Fi network name and password before clicking Next."
+        },
+        {
+            step: "Now RAX50 will check in Netgear server for any new firmware update.",
+            yes: "Continue with the setup.",
+            no: "If there are issues checking for updates, please ensure your internet connection is stable."
+        },
+        {
+            step: "Please do not update the router to the latest firmware. As there is an ongoing issue with the latest firmware update.",
+            yes: "Click Next to complete the setup.",
+            no: "If you're having issues with the firmware update, please consult the troubleshooting section."
+        }
+    ];
+
+    function startSetup(type) {
+        currentSetupType = type; // Store the current setup type
+        stepIndex = 0; // Reset step index when starting a new setup
+        noClickedSteps.clear(); // Clear the set of no clicked steps
+        document.querySelector('.button-container').style.display = 'none'; // Hide the main button container
+        document.getElementById("stepsContainer").style.display = 'flex'; // Show steps container
+        renderStep(); // Start rendering the steps
+    }
+
+    function renderStep() {
+        const stepContainer = document.getElementById("stepsContent");
+        const steps = currentSetupType === 'wired' ? wiredSteps : wirelessSteps; // Select steps based on setup type
+        stepContainer.innerHTML = `<div class="step">${steps[stepIndex].step}</div>`;
+    }
+
+    function handleDecision(decision) {
+        const steps = currentSetupType === 'wired' ? wiredSteps : wirelessSteps; // Select steps based on setup type
+        const step = steps[stepIndex];
+
+        if (decision === 'no' && noClickedSteps.has(stepIndex)) {
+            // If "No" was clicked before for this step, don't repeat it
+            alert("This issue has already been logged for this step.");
+            return;
+        }
+
+        const resultMessage = decision === 'yes' ? "Step successful." : "Step not successful.";
+        // Store the selection for notes
+        selections.push(`Step ${stepIndex + 1}: ${step.step} - ${decision}`);
+
+        if (decision === 'no') {
+            issues.push(`Customer faced an issue at step: "${step.step}"`);
+            noClickedSteps.add(stepIndex); // Mark this step as having "No" clicked
+        }
+
+        const resultContainer = document.getElementById("resultContainer");
+        resultContainer.innerHTML = `<p>${resultMessage}</p>`;
+        updateCompletedSteps();
+
+        if (decision === 'no') {
+            displayTroubleshooting(step.no);
+        } else {
+            completedStepsTracker.push(stepIndex);
+            stepIndex++;
+            document.getElementById("troubleshootingContainer").style.display = 'none';
+            if (stepIndex < steps.length) {
+                renderStep();
+            } else {
+                displayResult();
+            }
+        }
+    }
+
+    function goBack() {
+        if (completedStepsTracker.length > 0) {
+            stepIndex = completedStepsTracker.pop();
+            renderStep();
+            const resultContainer = document.getElementById("resultContainer");
+            resultContainer.innerHTML = "";
+            updateCompletedSteps();
+            while (selections.length > stepIndex) selections.pop();
+            updateComments(); // Refresh comments as selections have changed
+        }
+    }
+
+    function updateCompletedSteps() {
+        const completedSteps = document.getElementById("completedSteps");
+        completedSteps.innerHTML = selections.map(selection => {
+            const stepMatch = selection.match(/Step (\d+): (.+) - (.+)/);
+            if (stepMatch) {
+                const stepNumber = stepMatch[1];
+                const stepText = stepMatch[2];
+                const userSelection = stepMatch[3];
+                return `<div class="completed-step">Step ${stepNumber}: ${stepText} - ${userSelection}</div>`;
+            }
+            return '';
+        }).join('');
+        updateComments(); // Update notes with selections
+    }
+
+    function displayTroubleshooting(troubleshootingMessage) {
+        const troubleshootingContainer = document.getElementById("troubleshootingContainer");
+        const troubleshootingContent = document.getElementById("troubleshootingContent");
+        troubleshootingContent.innerHTML = `<p>${troubleshootingMessage}</p>`;
+        troubleshootingContainer.style.display = 'block';
+    }
+
+    function displayResult() {
+        const resultContainer = document.getElementById("resultContainer");
+        resultContainer.innerHTML += `<p>All steps completed!</p>`;
+        document.getElementById("troubleshootingContainer").style.display = 'none';
+        document.getElementById("commentsSection").style.display = 'block';
+        updateComments();
+    }
+
+    function updateComments() {
+        const commentsContent = document.getElementById("commentsContent");
+        commentsContent.innerHTML = selections.map(selection => {
+            const stepMatch = selection.match(/Step (\d+): (.+) - (.+)/);
+            if (stepMatch) {
+                const stepNumber = stepMatch[1];
+                const stepText = stepMatch[2];
+                const userSelection = stepMatch[3];
+                return userSelection === 'no' ? `<p>${stepText} - Customer faced an issue in this step.</p>` : `<p>${stepText} - ${userSelection}</p>`;
+            }
+            return '';
+        }).join('');
+    }
+
+    // Start the decision tree
+    renderStep();
+</script>
+
+</body>
+</html>
